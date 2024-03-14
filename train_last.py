@@ -165,7 +165,7 @@ def training(dataset, opt, pipe, cm, testing_iterations, saving_iterations, chec
                 gaussians.optimizer.zero_grad(set_to_none = True)
 
                 #### cam_model update
-                container.optimizer_step(viewpoint_cam.uid)
+                # container.optimizer_step(viewpoint_cam.uid)
                 # models[viewpoint_cam.uid].optimizer.step()
                 # models[viewpoint_cam.uid].optimizer.zero_grad(set_to_none = True)
 
