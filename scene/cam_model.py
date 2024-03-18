@@ -1,6 +1,7 @@
 import torch
 from utils.graphics_utils import quaternion_to_matrix, matrix_to_quaternion
 from utils.system_utils import mkdir_p
+import utils.camera_utils as cam_util
 import os
 from plyfile import PlyData, PlyElement
 import copy
@@ -86,7 +87,6 @@ class CamModel():
         d_s[2, 2] = self.delta_s[2]
         return d_s
 
-
     #### TODO: cam2world -> world2cam
     @property
     def d_cam2world(self):
@@ -99,7 +99,6 @@ class CamModel():
         d_cam2world[:3, 3] = self.delta_t
         return d_cam2world
 
-    
     def regularize(self, iteration):
         loss = torch.norm(self.delta_r - torch.tensor([1., 0., 0., 0], device='cuda', requires_grad=False)) + torch.norm(self.delta_s - 1) + torch.norm(self.delta_t)
         loss = self.lambda_reg * loss
@@ -132,3 +131,159 @@ class CamModel():
         self.delta_s = state[1]
         self.delta_t = state[2]
 
+class se3_CamModelsContainer:
+    def __init__(self, n_frames, args):
+        self.models = [se3_CamModel(n_frame=i, args=args) for i in range(n_frames)]
+    
+
+    def d_pose_all(self):
+        return [model.d_pose for model in self.models]
+
+    def d_pose(self, idx):
+        return self.models[idx].d_pose
+    
+    def regularize_all(self, iteration, idx):
+        # for model in self.models:
+        #     model.regularize(iteration)
+        self.models[idx].regularize(iteration)
+    
+    def capture_all(self):
+        return [model.capture() for model in self.models]
+
+    def get_models(self):
+        return self.models
+
+    def optimizer_step(self, idx):
+        for uid, model in enumerate(self.models):
+            if uid == idx:
+                model.optimizer.step()
+            model.optimizer.zero_grad(set_to_none=True)
+        # self.models[idx].optimizer.step()
+        # self.models[idx].optimizer.zero_grad()
+
+    def extend(self, other_container):
+        self.models.extend(other_container.models)
+
+    def clear(self):
+        self.models = []
+
+    def save_cam(self, path):
+        mkdir_p(os.path.dirname(path))
+
+        models_state = self.capture_all()
+
+        torch.save(models_state, path)
+
+    def load_cam_all(self, path):
+        models_state = torch.load(path)
+        for model, state in zip(self.models, models_state):
+            model.restore(state)
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+class se3_CamModel():
+    
+    def __init__(self, n_frame, args):
+        ## obj -> cam2world
+        self.lr = args.cammodel_lr
+        self.delta = torch.tensor([0., 0., 0., 0., 0., 0.], device='cuda', requires_grad=True)
+        self.optimizer = torch.optim.Adam([self.delta], lr=self.lr)
+        self.lambda_reg = args.cammodel_lambda_reg
+
+    @property
+    def d_pose(self):
+        return cam_util.lie.se3_to_SE3(self.delta)
+
+    def regularize(self, iteration):
+        loss = torch.norm(self.delta - torch.tensor([1., 0., 0., 0., 0., 0.], device='cuda', requires_grad=False))
+        loss = self.lambda_reg * loss
+        loss.backward()
+        with torch.no_grad():
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+    def capture(self):
+        return self.delta
+
+    def restore(self, state):
+        self.delta = state
+
+## TODO: change to quat
+class quat_CamModelsContainer:
+    def __init__(self, n_frames, args):
+        self.models = [se3_CamModel(n_frame=i, args=args) for i in range(n_frames)]
+    
+
+    def d_pose_all(self):
+        return [model.d_pose for model in self.models]
+
+    def d_pose(self, idx):
+        return self.models[idx].d_pose
+    
+    def regularize_all(self, iteration, idx):
+        # for model in self.models:
+        #     model.regularize(iteration)
+        self.models[idx].regularize(iteration)
+    
+    def capture_all(self):
+        return [model.capture() for model in self.models]
+
+    def get_models(self):
+        return self.models
+
+    def optimizer_step(self, idx):
+        for uid, model in enumerate(self.models):
+            if uid == idx:
+                model.optimizer.step()
+            model.optimizer.zero_grad(set_to_none=True)
+        # self.models[idx].optimizer.step()
+        # self.models[idx].optimizer.zero_grad()
+
+    def extend(self, other_container):
+        self.models.extend(other_container.models)
+
+    def clear(self):
+        self.models = []
+
+    def save_cam(self, path):
+        mkdir_p(os.path.dirname(path))
+
+        models_state = self.capture_all()
+
+        torch.save(models_state, path)
+
+    def load_cam_all(self, path):
+        models_state = torch.load(path)
+        for model, state in zip(self.models, models_state):
+            model.restore(state)
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+class quat_CamModel():
+    
+    def __init__(self, n_frame, args):
+        ## obj -> cam2world
+        self.lr = args.cammodel_lr
+        self.delta = torch.tensor([0., 0., 0., 0., 0., 0.], device='cuda', requires_grad=True)
+        self.optimizer = torch.optim.Adam([self.delta], lr=self.lr)
+        self.lambda_reg = args.cammodel_lambda_reg
+
+    @property
+    def d_pose(self):
+        return cam_util.lie.se3_to_SE3(self.delta)
+
+    def regularize(self, iteration):
+        loss = torch.norm(self.delta - torch.tensor([1., 0., 0., 0., 0., 0.], device='cuda', requires_grad=False))
+        loss = self.lambda_reg * loss
+        loss.backward()
+        with torch.no_grad():
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+    def capture(self):
+        return self.delta
+
+    def restore(self, state):
+        self.delta = state

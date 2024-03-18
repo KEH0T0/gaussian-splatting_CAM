@@ -16,13 +16,13 @@ from random import randint
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
 import sys
-from scene import Scene, GaussianModel, CamModel, CamModelsContainer
+from scene import Scene, GaussianModel, CamModel, CamModelsContainer, se3_CamModelsContainer, se3_CamModel
 from utils.general_utils import safe_state
 import uuid
 from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
-from arguments import ModelParams, PipelineParams, OptimizationParams,  CamModelParams
+from arguments import ModelParams, PipelineParams, OptimizationParams, CamModelParams
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -58,8 +58,8 @@ def training(dataset, opt, pipe, cm, testing_iterations, saving_iterations, chec
 
     frames = scene.getTrainCameras()
     ##### TODO: get Camera model
-    container = CamModelsContainer(len(frames), cm)
-    d_cam2world_all = container.d_cam2world_all()
+    container = se3_CamModelsContainer(len(frames), cm)
+    # d_cam2world_all = container.d_cam2world_all()
     models = container.get_models()
     ###
     
@@ -180,17 +180,9 @@ def training(dataset, opt, pipe, cm, testing_iterations, saving_iterations, chec
 
 def update_viewpoint_cam(viewpoint_cam, model):
 
-    ### consider as world 2 cam
-    d_cam2world = model.d_cam2world
+    d_pose = model.d_pose
 
-    # print(d_cam2world)
-    w2c = torch.matmul(d_cam2world, viewpoint_cam.world_view_transform.transpose(0,1))
-    # w2c = viewpoint_cam.w2c.cuda()
-
-    # R = w2c[:3,:3].T
-    # T = w2c[:3, 3]
-
-    # world_view_transform = getWorld2View2CAM(R, T, viewpoint_cam.trans, viewpoint_cam.scale).cuda() # .transpose(0,1)
+    w2c = torch.matmul(d_pose, viewpoint_cam.world_view_transform.transpose(0,1))
 
     return w2c
 

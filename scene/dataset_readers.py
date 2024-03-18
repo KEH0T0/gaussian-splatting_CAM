@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
+import utils.camera_utils as cam_util
 from scene.gaussian_model import BasicPointCloud
 from scene.cam_model import CamModel, CamModelsContainer
 import torch
@@ -67,6 +68,7 @@ def getNerfppNorm(cam_info):
     translate = -center
 
     return {"translate": translate, "radius": radius}
+
 def getNerfppNormCAM(cam_info):
     def get_center_and_diag_torch(cam_centers):
         # cam_centers 리스트를 하나의 텐서로 결합
@@ -236,6 +238,7 @@ def add_noise_to_rotation_torch(c2w, noise_scale_rotation=0.01, noise_scale_tran
     new_c2w[:3, 3] += translation_noise
 
     return new_c2w
+
 def add_noise_to_rotation(c2w, noise_scale_rotation=0.01, noise_scale_translation=0.01):
     rotation_matrix = c2w[:3, :3]
     
@@ -265,6 +268,24 @@ def add_noise_to_rotation(c2w, noise_scale_rotation=0.01, noise_scale_translatio
     # 변환 벡터에 노이즈 추가 (PyTorch에서 생성 후 NumPy로 변환)
     translation_noise = (torch.randn(3) * noise_scale_translation).numpy()
     new_c2w[:3, 3] += translation_noise
+
+    return new_c2w
+
+def add_se3_noise_to_rotation(c2w, noise_scale_rotation=0.01):
+
+    se3_noise = torch.randn(1,6)*noise_scale_rotation
+
+    pose_noise = cam_util.lie.se3_to_SE3(se3_noise)
+
+    new_c2w = cam_util.pose.compose([pose_noise, c2w])
+
+    return new_c2w
+
+def add_quat_noise_to_rotation(c2w, noise_scale_rotation=0.01, noise_scale_translation=0.01):
+
+    ##TODO
+
+    new_2w = c2w
 
     return new_c2w
 
