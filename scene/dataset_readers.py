@@ -271,13 +271,16 @@ def add_noise_to_rotation(c2w, noise_scale_rotation=0.01, noise_scale_translatio
 
     return new_c2w
 
-def add_se3_noise_to_rotation(c2w, noise_scale_rotation=0.01):
+def add_se3_noise_to_rotation(c2w, noise_scale_rotation=0.05):
 
     se3_noise = torch.randn(1,6)*noise_scale_rotation
 
     pose_noise = cam_util.lie.se3_to_SE3(se3_noise)
 
-    new_c2w = cam_util.pose.compose([pose_noise, c2w])
+    new_c2w = cam_util.pose.compose([pose_noise, torch.from_numpy(c2w).unsqueeze(dim=0).float()]).numpy()
+
+    new_c2w = np.squeeze(new_c2w, axis=0)
+    new_c2w = np.vstack([new_c2w, np.array([0, 0, 0, 1])])
 
     return new_c2w
 
@@ -306,7 +309,8 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             # change from OpenGL/Blender camera axes (Y up, Z back) to COLMAP (Y down, Z forward)
             c2w[:3, 1:3] *= -1
 
-            c2w = add_noise_to_rotation(c2w)
+            # c2w = add_noise_to_rotation(c2w)
+            c2w = add_se3_noise_to_rotation(c2w[:3,:])
 
             # get the world-to-camera transform and set R, T
             w2c = np.linalg.inv(c2w)
@@ -472,3 +476,4 @@ sceneLoadTypeCallbacks = {
     "Blender" : readNerfSyntheticInfo,
     "CamOpt": readNerfSyntheticInfo
 }
+

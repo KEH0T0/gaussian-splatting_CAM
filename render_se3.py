@@ -78,14 +78,6 @@ def load_cams(train_cams, cam_cfg, model_path, loaded_iter):
     container = se3_CamModelsContainer(len(train_cams), cam_cfg)
     container.load_cam_all(model_path)
     models = container.get_models()
-    
-    new_train_cams = []
-
-    # for viewpoint_cam, model in zip(train_cams, models):
-
-    #     new_viewpoint_cam = update_viewpoint_cam(viewpoint_cam, model)
-
-    #     new_train_cams.append(new_viewpoint_cam)
 
     return models
 

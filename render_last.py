@@ -77,17 +77,8 @@ def load_cams(train_cams, cam_cfg, model_path, loaded_iter):
 
     container = CamModelsContainer(len(train_cams), cam_cfg)
     container.load_cam_all(model_path)
-    d_cam2world_all = container.d_cam2world_all()
     models = container.get_models()
     
-    new_train_cams = []
-
-    # for viewpoint_cam, model in zip(train_cams, models):
-
-    #     new_viewpoint_cam = update_viewpoint_cam(viewpoint_cam, model)
-
-    #     new_train_cams.append(new_viewpoint_cam)
-
     return models
 
 def update_viewpoint_cam(viewpoint_cam, model):
@@ -95,14 +86,7 @@ def update_viewpoint_cam(viewpoint_cam, model):
     ### consider as world 2 cam
     d_cam2world = model.d_cam2world
 
-    # print(d_cam2world)
     w2c = torch.matmul(d_cam2world, viewpoint_cam.world_view_transform.transpose(0,1))
-    # w2c = viewpoint_cam.w2c.cuda()
-
-    # R = w2c[:3,:3].T
-    # T = w2c[:3, 3]
-
-    # world_view_transform = getWorld2View2CAM(R, T, viewpoint_cam.trans, viewpoint_cam.scale).cuda() # .transpose(0,1)
 
     return w2c
 
