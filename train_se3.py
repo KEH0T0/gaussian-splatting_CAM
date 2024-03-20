@@ -34,6 +34,7 @@ from diff_gaussian_rasterization import GaussianRasterizer
 from diff_gaussian_rasterization import GaussianRasterizationSettings
 import torch.nn.functional as F
 import math
+import torchvision
 
 def training(dataset, opt, pipe, cm, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     first_iter = 0
@@ -135,7 +136,7 @@ def training(dataset, opt, pipe, cm, testing_iterations, saving_iterations, chec
                 progress_bar.close()
 
             # Log and save
-            training_report_cam(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, get_render, models, gaussians, pipe, background)
+            training_report_cam(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, get_render, models, gaussians, pipe, background, dataset.model_path)
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
@@ -193,7 +194,7 @@ def prepare_output_and_logger(args):
         else:
             unique_str = str(uuid.uuid4())
         current_time_str = datetime.now().strftime("%Y-%m-%d_%H-%M_")
-        args.model_path = os.path.join("./output/", current_time_str+unique_str[0:3])
+        args.model_path = os.path.join("./output/", current_time_str+'se3_'+unique_str[0:3])
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
@@ -246,7 +247,10 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
             tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
         torch.cuda.empty_cache()
 
-def training_report_cam(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, models, gaussians, pipe, background):
+def training_report_cam(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, models, gaussians, pipe, background, model_path):
+    
+
+
     if tb_writer:
         tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
         tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
@@ -255,6 +259,10 @@ def training_report_cam(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testi
     # Report test and samples of training set
     if iteration in testing_iterations:
         torch.cuda.empty_cache()
+
+        render_path = os.path.join(model_path, "render", "ours_{}".format(iteration), "renders")
+        os.makedirs(render_path, exist_ok = True)
+
         validation_configs = ({'name': 'test', 'cameras' : scene.getTestCameras()}, 
                               {'name': 'train', 'cameras' : [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in range(5, 30, 5)]})
 
@@ -266,12 +274,16 @@ def training_report_cam(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testi
 
                     image = torch.clamp(renderFunc(models[viewpoint.uid], viewpoint, gaussians, viewpoint.original_image.cuda(), pipe, background)["image"], 0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
+                    
                     if tb_writer and (idx < 5):
                         tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name), image[None], global_step=iteration)
                         if iteration == testing_iterations[0]:
                             tb_writer.add_images(config['name'] + "_view_{}/ground_truth".format(viewpoint.image_name), gt_image[None], global_step=iteration)
                     l1_test += l1_loss(image, gt_image).mean().double()
                     psnr_test += psnr(image, gt_image).mean().double()
+
+                    torchvision.utils.save_image(image, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
+
                 psnr_test /= len(config['cameras'])
                 l1_test /= len(config['cameras'])          
                 print("\n[ITER {}] Evaluating {}: L1 {} PSNR {}".format(iteration, config['name'], l1_test, psnr_test))
@@ -521,8 +533,8 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000, 50_000, 100_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000, 50_000, 100_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[1_000, 7_000, 30_000, 50_000, 100_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 7_000, 30_000, 50_000, 100_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)

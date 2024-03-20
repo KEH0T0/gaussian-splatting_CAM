@@ -50,7 +50,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, cam_cfg : CamModelParams, skip_train : bool, skip_test : bool):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
-        scene = Scene(dataset, gaussians, cam_cfg, load_iteration=iteration, shuffle=False)
+        scene = Scene(dataset, gaussians, cam_cfg, load_iteration=iteration)#, shuffle=False)
 
         bg_color = [1,1,1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -68,7 +68,6 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
 
         if not skip_test:
              render_set(dataset.model_path, "test", scene.loaded_iter, test_cams, gaussians, pipeline, background)
-
 
 def load_cams(train_cams, cam_cfg, model_path, loaded_iter):
     model_path = os.path.join(model_path, "cam_model",

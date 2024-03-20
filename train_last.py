@@ -201,7 +201,7 @@ def prepare_output_and_logger(args):
         else:
             unique_str = str(uuid.uuid4())
         current_time_str = datetime.now().strftime("%Y-%m-%d_%H-%M_")
-        args.model_path = os.path.join("./output/", current_time_str+unique_str[0:3])
+        args.model_path = os.path.join("./output/", current_time_str+'quat_'+unique_str[0:3])
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))

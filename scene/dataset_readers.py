@@ -239,7 +239,7 @@ def add_noise_to_rotation_torch(c2w, noise_scale_rotation=0.01, noise_scale_tran
 
     return new_c2w
 
-def add_noise_to_rotation(c2w, noise_scale_rotation=0.01, noise_scale_translation=0.01):
+def add_noise_to_rotation(c2w, noise_scale_rotation=0.15, noise_scale_translation=0.15):
     rotation_matrix = c2w[:3, :3]
     
     # PyTorch를 사용하여 노이즈 생성
@@ -309,8 +309,8 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             # change from OpenGL/Blender camera axes (Y up, Z back) to COLMAP (Y down, Z forward)
             c2w[:3, 1:3] *= -1
 
-            # c2w = add_noise_to_rotation(c2w)
-            c2w = add_se3_noise_to_rotation(c2w[:3,:])
+            c2w = add_noise_to_rotation(c2w)
+            # c2w = add_se3_noise_to_rotation(c2w[:3,:])
 
             # get the world-to-camera transform and set R, T
             w2c = np.linalg.inv(c2w)
